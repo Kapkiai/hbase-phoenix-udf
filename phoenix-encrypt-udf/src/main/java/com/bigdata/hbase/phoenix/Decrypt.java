@@ -2,6 +2,7 @@ package com.bigdata.hbase.phoenix;
 
 import java.io.DataInput;
 import java.io.IOException;
+import java.net.URLClassLoader;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -9,6 +10,8 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Base64;
 import java.util.List;
+
+import net.thisptr.jackson.jq.Scope;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.phoenix.expression.Expression;
 import org.apache.phoenix.parse.FunctionParseNode.Argument;
@@ -38,6 +41,18 @@ public class Decrypt extends ScalarFunction{
 
     private String key;
     private String algo;
+
+    static {
+        // Force initializing Scope object when JsonQueryFunction is loaded using the Scope classloader. Otherwise,
+        // built-in jq functions are not loaded.
+        final ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
+        Thread.currentThread().setContextClassLoader((URLClassLoader) Scope.class.getClassLoader());
+        try {
+            Scope.rootScope();
+        } finally {
+            Thread.currentThread().setContextClassLoader(contextClassLoader);
+        }
+    }
 
     public Decrypt(){}
 
