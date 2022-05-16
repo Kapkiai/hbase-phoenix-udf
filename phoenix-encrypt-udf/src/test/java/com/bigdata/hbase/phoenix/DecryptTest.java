@@ -21,7 +21,7 @@ public class DecryptTest {
     @Test
     public void testDecrypt() throws Exception {
         final LiteralExpression value = LiteralExpression.newConstant("b2vgwX61osfSwv/pMEBQzg==", PVarchar.INSTANCE);
-        final LiteralExpression key = LiteralExpression.newConstant("n9Tp9+69gxNdUg9F632u1cCRuqcOuGmN", PVarchar.INSTANCE);
+            final LiteralExpression key = LiteralExpression.newConstant("n9Tp9+69gxNdUg9F632u1cCRuqcOuGmN", PVarchar.INSTANCE);
         final LiteralExpression algo = LiteralExpression.newConstant("AES/CBC/PKCS5Padding", PVarchar.INSTANCE);
         assertEquals("123456789", evaluate(new Decrypt(Arrays.asList(value, key, algo))));
     }

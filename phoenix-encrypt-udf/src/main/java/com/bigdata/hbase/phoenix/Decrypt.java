@@ -8,6 +8,7 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 
@@ -22,6 +23,8 @@ import org.apache.phoenix.schema.types.PDataType;
 import org.apache.phoenix.schema.types.PVarchar;
 import org.apache.phoenix.expression.function.*;
 import org.apache.phoenix.util.StringUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -36,6 +39,7 @@ import javax.crypto.spec.SecretKeySpec;
         @Argument(allowedTypes = {PVarchar.class}, isConstant = true, defaultValue = "AES/CBC/PKCS5Padding"), // Encryprion algorithm
 })
 public class Decrypt extends ScalarFunction{
+    private final static Logger logger = LoggerFactory.getLogger(Decrypt.class);
 
     public static final String NAME = "ENCRYPT";
 
@@ -46,7 +50,7 @@ public class Decrypt extends ScalarFunction{
         // Force initializing Scope object when JsonQueryFunction is loaded using the Scope classloader. Otherwise,
         // built-in jq functions are not loaded.
         final ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
-        Thread.currentThread().setContextClassLoader((URLClassLoader) Scope.class.getClassLoader());
+        Thread.currentThread().setContextClassLoader(Scope.class.getClassLoader());
         try {
             Scope.rootScope();
         } finally {
@@ -80,8 +84,7 @@ public class Decrypt extends ScalarFunction{
     @Override
     public boolean evaluate(final Tuple tuple, final ImmutableBytesWritable ptr) {
         final Expression inArg = getChildren().get(0);
-        final ImmutableBytesWritable in = new ImmutableBytesWritable();
-        if (!inArg.evaluate(tuple, in)) {
+        if (!inArg.evaluate(tuple, ptr)) {
             return false;
         }
 
@@ -90,22 +93,23 @@ public class Decrypt extends ScalarFunction{
             try {
                 cipher = Cipher.getInstance(algo);
             } catch (NoSuchAlgorithmException | NoSuchPaddingException e) {
-                e.printStackTrace();
+                logger.error(e.toString());
             }
             try {
                 cipher.init(Cipher.DECRYPT_MODE, secretKeySpec, new IvParameterSpec(new byte[16]));
             } catch (InvalidKeyException | InvalidAlgorithmParameterException e) {
-                e.printStackTrace();
+                logger.error(e.toString());
             }
             byte[] plainText = new byte[0];
             try {
-                plainText = cipher.doFinal(Base64.getDecoder().decode(in.get()));
+                plainText = cipher.doFinal(Base64.getDecoder().decode(ptr.copyBytes()));
             } catch (IllegalBlockSizeException | BadPaddingException e) {
-                e.printStackTrace();
+                logger.error(e.toString());
             }
             ptr.set(plainText);
             return true;
         } catch (Exception e) {
+            logger.error(e.toString());
             throw new RuntimeException(e);
         }
     }

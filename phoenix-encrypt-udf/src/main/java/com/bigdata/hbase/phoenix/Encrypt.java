@@ -13,15 +13,16 @@ import java.util.List;
 
 import net.thisptr.jackson.jq.Scope;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.phoenix.compile.KeyPart;
 import org.apache.phoenix.expression.Expression;
 import org.apache.phoenix.parse.FunctionParseNode.Argument;
 import org.apache.phoenix.parse.FunctionParseNode.BuiltInFunction;
-import org.apache.phoenix.schema.ColumnModifier;
 import org.apache.phoenix.schema.tuple.Tuple;
 import org.apache.phoenix.schema.types.PDataType;
 import org.apache.phoenix.schema.types.PVarchar;
 import org.apache.phoenix.expression.function.*;
-import org.apache.phoenix.util.StringUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -35,7 +36,9 @@ import javax.crypto.spec.SecretKeySpec;
         @Argument(allowedTypes = {PVarchar.class}), // key
         @Argument(allowedTypes = {PVarchar.class}, isConstant = true, defaultValue = "AES/CBC/PKCS5Padding"), // Encryprion algorithm
 })
+// CREATE FUNCTION enc(VARCHAR, VARCHAR, VARCHAR CONSTANT DEFAULTVALUE='AES/CBC/PKCS5Padding') RETURNS VARCHAR AS 'com.bigdata.hbase.phoenix.Encrypt';
 public class Encrypt extends ScalarFunction{
+    private static final Logger logger = LoggerFactory.getLogger(Encrypt.class);
 
     public static final String NAME = "ENCRYPT";
 
@@ -46,7 +49,7 @@ public class Encrypt extends ScalarFunction{
         // Force initializing Scope object when JsonQueryFunction is loaded using the Scope classloader. Otherwise,
         // built-in jq functions are not loaded.
         final ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
-        Thread.currentThread().setContextClassLoader((URLClassLoader) Scope.class.getClassLoader());
+        Thread.currentThread().setContextClassLoader(Scope.class.getClassLoader());
         try {
             Scope.rootScope();
         } finally {
@@ -80,35 +83,35 @@ public class Encrypt extends ScalarFunction{
     @Override
     public boolean evaluate(final Tuple tuple, final ImmutableBytesWritable ptr) {
         final Expression inArg = getChildren().get(0);
-        final ImmutableBytesWritable in = new ImmutableBytesWritable();
-        if (!inArg.evaluate(tuple, in)) {
+        if (!inArg.evaluate(tuple, ptr)) {
             return false;
         }
 
         try {
-            SecretKeySpec secretKeySpec = new SecretKeySpec(Base64.getDecoder().decode(key), "AES");
+            final SecretKeySpec secretKeySpec = new SecretKeySpec(Base64.getDecoder().decode(key), "AES");
             Cipher cipher = null;
             try {
                 cipher = Cipher.getInstance(algo);
             } catch (NoSuchAlgorithmException | NoSuchPaddingException e) {
-                e.printStackTrace();
+                logger.error(e.toString());
             }
             try {
                 cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec, new IvParameterSpec(new byte[16]));
             } catch (InvalidKeyException | InvalidAlgorithmParameterException e) {
-                e.printStackTrace();
+                logger.error(e.toString());
             }
             byte[] cipherText = new byte[0];
             try {
-                cipherText = cipher.doFinal(in.get());
+                cipherText = cipher.doFinal(ptr.copyBytes());
             } catch (IllegalBlockSizeException | BadPaddingException e) {
-                e.printStackTrace();
+                logger.error(e.toString());
             }
 
-            String encrypted = Base64.getEncoder().encodeToString(cipherText);
-            ptr.set(PVarchar.INSTANCE.toBytes(encrypted));
+            byte[] encrypted = Base64.getEncoder().encode(cipherText);
+            ptr.set(encrypted);
             return true;
         } catch (Exception e) {
+            logger.error(e.toString());
             throw new RuntimeException(e);
         }
     }
@@ -122,6 +125,49 @@ public class Encrypt extends ScalarFunction{
     @Override
     public PDataType<?> getDataType() {
         return PVarchar.INSTANCE;
+    }
+
+    /**
+     * Determines whether or not a function may be used to form
+     * the start/stop key of a scan
+     * @return the zero-based position of the argument to traverse
+     *  into to look for a primary key column reference, or
+     *  {@value #NO_TRAVERSAL} if the function cannot be used to
+     *  form the scan key.
+     */
+    @Override
+    public int getKeyFormationTraversalIndex() {
+        return NO_TRAVERSAL;
+    }
+
+    /**
+     * Manufactures a KeyPart used to construct the KeyRange given
+     * a constant and a comparison operator.
+     * @param childPart the KeyPart formulated for the child expression
+     *  at the {@link #getKeyFormationTraversalIndex()} position.
+     * @return the KeyPart for constructing the KeyRange for this
+     *  function.
+     */
+    @Override
+    public KeyPart newKeyPart(KeyPart childPart) {
+        return null;
+    }
+
+    /**
+     * Determines whether or not the result of the function invocation
+     * will be ordered in the same way as the input to the function.
+     * Returning YES enables an optimization to occur when a
+     * GROUP BY contains function invocations using the leading PK
+     * column(s).
+     * @return YES if the function invocation will always preserve order for
+     * the inputs versus the outputs and false otherwise, YES_IF_LAST if the
+     * function preserves order, but any further column reference would not
+     * continue to preserve order, and NO if the function does not preserve
+     * order.
+     */
+    @Override
+    public OrderPreserving preservesOrder() {
+        return OrderPreserving.NO;
     }
 
     @Override

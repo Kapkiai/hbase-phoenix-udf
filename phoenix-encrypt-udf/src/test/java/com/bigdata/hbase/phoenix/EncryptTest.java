@@ -21,9 +21,9 @@ public class EncryptTest {
 
     @Test
     public void testEncrypt() throws Exception {
-        final LiteralExpression value = LiteralExpression.newConstant("123456789", PVarchar.INSTANCE);
+        final LiteralExpression value = LiteralExpression.newConstant("bar", PVarchar.INSTANCE);
         final LiteralExpression key = LiteralExpression.newConstant("n9Tp9+69gxNdUg9F632u1cCRuqcOuGmN", PVarchar.INSTANCE);
         final LiteralExpression algo = LiteralExpression.newConstant("AES/CBC/PKCS5Padding", PVarchar.INSTANCE);
-        assertEquals("b2vgwX61osfSwv/pMEBQzg==", evaluate(new Encrypt(Arrays.asList(value, key, algo))));
+        assertEquals("tqQpcx7EeQ5B1RkHe9d4dA==", evaluate(new Encrypt(Arrays.asList(value, key, algo))));
     }
 }
