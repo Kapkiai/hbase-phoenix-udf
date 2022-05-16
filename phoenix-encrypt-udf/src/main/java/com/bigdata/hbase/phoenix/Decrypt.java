@@ -41,7 +41,7 @@ import javax.crypto.spec.SecretKeySpec;
 public class Decrypt extends ScalarFunction{
     private final static Logger logger = LoggerFactory.getLogger(Decrypt.class);
 
-    public static final String NAME = "ENCRYPT";
+    public static final String NAME = "DECRYPT";
 
     private String key;
     private String algo;
