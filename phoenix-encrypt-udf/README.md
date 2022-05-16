@@ -1,4 +1,4 @@
-hoenix-jq-udf
+Phoenix-enc/dec-udf
 ==============
 
 AES encryption and decryption for Apache Phoenix
