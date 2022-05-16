@@ -38,6 +38,8 @@ import javax.crypto.spec.SecretKeySpec;
         @Argument(allowedTypes = {PVarchar.class}), // key
         @Argument(allowedTypes = {PVarchar.class}, isConstant = true, defaultValue = "AES/CBC/PKCS5Padding"), // Encryprion algorithm
 })
+
+// CREATE FUNCTION decrypt(VARCHAR, VARCHAR, VARCHAR CONSTANT DEFAULTVALUE='AES/CBC/PKCS5Padding') RETURNS VARCHAR AS 'com.bigdata.hbase.phoenix.Decrypt';
 public class Decrypt extends ScalarFunction{
     private final static Logger logger = LoggerFactory.getLogger(Decrypt.class);
 
